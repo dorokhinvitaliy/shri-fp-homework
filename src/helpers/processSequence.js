@@ -23,10 +23,10 @@ const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
   const log = R.tap(writeLog);
 
   const isValid = R.allPass([
-    R.test(/^[0-9.]+$/), // только цифры и точка
-    R.pipe(R.length, R.gt(R.__, 2)), // длина > 2
-    R.pipe(R.length, R.lt(R.__, 10)), // длина < 10
-    R.pipe(parseFloat, R.lt(0)), // положительное
+    R.test(/^[0-9.]+$/),
+    R.pipe(R.length, R.gt(R.__, 2)),
+    R.pipe(R.length, R.lt(R.__, 10)),
+    R.pipe(parseFloat, R.lt(0)),
   ]);
 
   const parseAndRound = R.pipe(parseFloat, Math.round);
@@ -45,7 +45,6 @@ const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
   const onSuccess = R.pipe(R.prop("result"), handleSuccess);
   const extractResult = R.prop("result");
 
-  // Главная цепочка
   const process = R.pipe(
     log,
     R.ifElse(
@@ -56,14 +55,14 @@ const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
         convertToBinary,
         R.andThen(
           R.pipe(
-            extractResult, // например, "1111011"
-            log, // логируем "1111011"
-            R.tap((binary) => log(binary.length)), // логируем длину строки
+            extractResult,
+            log,
+            R.tap((binary) => log(binary.length)),
             R.pipe(
-              R.length, // получаем длину строки
-              (len) => len * len, // квадрат
+              R.length,
+              (len) => len * len,
               log,
-              (square) => square % 3, // остаток от деления
+              (square) => square % 3,
               log,
               (id) => getAnimalById(id),
               R.andThen(onSuccess)
