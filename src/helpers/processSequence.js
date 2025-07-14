@@ -14,38 +14,70 @@
  * Иногда промисы от API будут приходить в состояние rejected, (прямо как и API в реальной жизни)
  * Ответ будет приходить в поле {result}
  */
- import Api from '../tools/api';
+import Api from "../tools/api";
+import * as R from "ramda";
 
- const api = new Api();
+const api = new Api();
 
- /**
-  * Я – пример, удали меня
-  */
- const wait = time => new Promise(resolve => {
-     setTimeout(resolve, time);
- })
+const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
+  const log = R.tap(writeLog);
 
- const processSequence = ({value, writeLog, handleSuccess, handleError}) => {
-     /**
-      * Я – пример, удали меня
-      */
-     writeLog(value);
+  const isValid = R.allPass([
+    R.test(/^[0-9.]+$/), // только цифры и точка
+    R.pipe(R.length, R.gt(R.__, 2)), // длина > 2
+    R.pipe(R.length, R.lt(R.__, 10)), // длина < 10
+    R.pipe(parseFloat, R.lt(0)), // положительное
+  ]);
 
-     api.get('https://api.tech/numbers/base', {from: 2, to: 10, number: '01011010101'}).then(({result}) => {
-         writeLog(result);
-     });
+  const parseAndRound = R.pipe(parseFloat, Math.round);
 
-     wait(2500).then(() => {
-         writeLog('SecondLog')
+  const convertToBinary = (n) =>
+    api.get("https://api.tech/numbers/base")({
+      number: String(n),
+      from: 10,
+      to: 2,
+    });
 
-         return wait(1500);
-     }).then(() => {
-         writeLog('ThirdLog');
+  const getAnimalById = (id) => api.get(`https://animals.tech/${id}`)({});
 
-         return wait(400);
-     }).then(() => {
-         handleSuccess('Done');
-     });
- }
+  const handleValidationError = () => handleError("ValidationError");
+
+  const onSuccess = R.pipe(R.prop("result"), handleSuccess);
+  const extractResult = R.prop("result");
+
+  // Главная цепочка
+  const process = R.pipe(
+    log,
+    R.ifElse(
+      isValid,
+      R.pipe(
+        parseAndRound,
+        log,
+        convertToBinary,
+        R.andThen(
+          R.pipe(
+            extractResult, // например, "1111011"
+            log, // логируем "1111011"
+            R.tap((binary) => log(binary.length)), // логируем длину строки
+            R.pipe(
+              R.length, // получаем длину строки
+              (len) => len * len, // квадрат
+              log,
+              (square) => square % 3, // остаток от деления
+              log,
+              (id) => getAnimalById(id),
+              R.andThen(onSuccess)
+            )
+          )
+        ),
+
+        R.otherwise(handleError)
+      ),
+      handleValidationError
+    )
+  );
+
+  process(value);
+};
 
 export default processSequence;
